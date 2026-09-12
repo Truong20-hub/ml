@@ -1,0 +1,12 @@
+services:
+  naive-bayes-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: naive-bayes-api
+
+    ports:
+      - "8000:8000"
+
+    restart: unless-stopped
