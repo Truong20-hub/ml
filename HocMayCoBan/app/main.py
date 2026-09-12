@@ -1,28 +1,71 @@
-from fastapi import FastAPI
-from app.schemas import PropertyData
-from app.config import settings
+from typing import Dict
 
-app = FastAPI(title="Machine Learning Gateway")
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+from app.model import mushroom_model
+
+
+app = FastAPI(
+    title="Mushroom Classification API",
+    description="Phân loại nấm ăn được hoặc nấm độc bằng Naive Bayes",
+    version="1.0.0"
+)
+
+
+class PredictionRequest(BaseModel):
+    features: Dict[str, str]
 
 
 @app.get("/")
-def read_root():
-    return {"message": "Machine Learning Gateway is running"}
-
-
-@app.post("/get_prices")
-def get_prices(payload: PropertyData):
-    # Placeholder logic for ML prediction gateway
-    predicted_price = payload.area * 1200 + payload.rooms * 25000 - payload.distance * 5000
+def root():
     return {
-        "predicted_price": round(predicted_price, 2),
-        "currency": "USD",
-        "input_data": payload.model_dump(),
-        "status": "success",
+        "message": "Mushroom Naive Bayes API đang hoạt động",
+        "docs": "/docs",
+        "health": "/health",
+        "model_info": "/model-info"
     }
 
 
-if __name__ == "__main__":
-    import uvicorn
+@app.get("/health")
+def health_check():
+    return {
+        "status": "ok",
+        "model_trained": mushroom_model.is_trained
+    }
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=True)
+
+@app.get("/model-info")
+def model_info():
+    return mushroom_model.get_info()
+
+
+@app.get("/features")
+def get_features():
+    return {
+        "target_column": mushroom_model.target_column,
+        "features": mushroom_model.feature_columns
+    }
+
+
+@app.post("/predict")
+def predict_mushroom(request: PredictionRequest):
+    try:
+        result = mushroom_model.predict(request.features)
+
+        return {
+            "success": True,
+            "data": result
+        }
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=str(error)
+        )
